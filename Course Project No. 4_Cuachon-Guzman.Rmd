@@ -1,0 +1,155 @@
+---
+title: "Course Project No. 4"
+author: "Cuachon, Guzman"
+date: "May 25, 2019"
+output: html_document
+---
+
+This is our first Markdown document.
+
+Project No. 4 for Stat 197 (Data Science)
+
+# Setting Directory
+```{r echo=TRUE}
+setwd("C:/Users/CLIENT/Desktop")
+
+```
+
+#Reading the datasets
+
+```{r dataset, echo=TRUE}
+NEI <- readRDS("summarySCC_PM25.rds")
+SCC <- readRDS("Source_Classification_Code.rds")
+```
+
+#Exploring the PM2.5 Emissions Data
+
+
+```{r NEI, echo=TRUE}
+head(NEI)
+names(NEI)
+```
+
+#Exploring the Source Classification Code Table Data
+
+```{r SCC, echo=TRUE}
+head(SCC)
+names(SCC)
+```
+
+
+#Questions
+
+##Question 1: Have total emissions from PM2.5 decreased in the United States from 1999 to 2008? Using the base plotting system, make a plot showing the total PM2.5 emission from all sources for each of the years 1999, 2002, 2005, and 2008.
+
+###Codes and plot for Question 1
+```{r plot1.R, echo=TRUE}
+total <- aggregate(Emissions ~ year, NEI, sum)
+barplot(
+    (total$Emissions)/10^6,
+    names.arg=total$year,
+    xlab="Year",
+    ylab="PM2.5 Emissions (10^6 Tons)",
+    main="Total PM2.5 Emissions From All US Sources"
+)
+```
+
+
+##Question 2: Have total emissions from PM2.5 decreased in the Baltimore City, Maryland (fips=="24510") from 1999 to 2008? Use the base plotting system to make a plot answering this question.
+
+###Codes and plot for Question 2
+```{r plot2.R, echo=TRUE}
+baltimoreNEI <- NEI[NEI$fips=="24510",]
+aggTotalsBaltimore <- aggregate(Emissions ~ year, baltimoreNEI,sum)
+barplot(
+    aggTotalsBaltimore$Emissions,
+    names.arg=aggTotalsBaltimore$year,
+    xlab="Year",
+    ylab="PM2.5 Emissions (Tons)",
+    main="Total PM2.5 Emissions From All Baltimore City Sources"
+)
+```
+
+
+##Question 3: Of the four types of sources indicated by the type (point, nonpoint, onroad, nonroad) variable, which of these four sources have seen decreases in emissions from 1999-2008 for Baltimore City? Which have seen increases in emissions from 1999-2008? Use the ggplot2 plotting system to make a plot answer this question.
+
+###Codes and plot for Question 3
+```{r plot3.R, echo=TRUE}
+#Aggregating and naming the columns
+balem <-aggregate(NEI$Emissions,by=list(NEI$year, NEI$fips=='24510',NEI$type),sum)
+names(balem) <-c('year','Bal','type','Emissions')
+balem<-balem[balem$Bal==TRUE,]
+
+#Plotting
+library(ggplot2)
+qplot(year,Emissions,data=balem, geom=c('line','point'), color=type, 
+      main='Emissions from 1999-2008 for Baltimore City by Type', ylab='Emissions (tons)')
+```
+
+##Question 4: Across the United States, how have emissions from coal combustion-related sources changed from 1999-2008?
+
+###Codes and plot for Question 4
+```{r plot4.R, echo=TRUE}
+#Getting the SCC for coal-related combustions
+i<-grep('Coal',SCC$EI.Sector,ignore.case = TRUE)
+index <-SCC[i,]$SCC
+
+#Aggregating and naming the columns
+coalem <-aggregate(NEI$Emissions,by=list(NEI$year, NEI$SCC %in% index),sum)
+names(coalem) <-c('year','Coal','Emissions')
+coal.em<-coalem[coalem$Coal==TRUE,]
+
+#Plotting
+library(ggplot2)
+qplot(year,Emissions,data=coal.em, geom=c('line','point'), 
+      main='Emission from Coal Combustion-Related Sources 1999-2008', ylab='Emissions (tons)')
+```
+
+##Question 5: How have emissions from motor vehicle sources changed from 1999-2008 in Baltimore City?
+
+###Codes and plot for Question 5
+```{r plot5.R, echo=TRUE}
+
+
+motorem <-aggregate(NEI$Emissions,
+                    by=list(NEI$year, NEI$fips=='24510', NEI$type=='ON-ROAD'),sum)
+names(motorem) <-c('year','type','Bal','Emissions')
+motor.em<-motorem[motorem$type==TRUE & motorem$Bal==TRUE,]
+
+#Plotting
+library(ggplot2)
+qplot(year,Emissions,data=motor.em, geom=c('line','point'), 
+      main='Emission from Motor-Related Sources 1999-2008 in Baltimore City',
+      ylab='Emissions (tons)')
+```
+
+
+##Question 6: Compare emissions from motor vehicle sources in Baltimore City with emissions from motor vehicle sources in Los Angeles County, California (fips == "06037").Which city has seen greater changes over time in motor vehicle emmissions?
+
+###Codes and plot for Question 6
+```{r plot6.R, echo=TRUE}
+motor <-aggregate(NEI$Emissions,
+                    by=list(NEI$year, NEI$type=='ON-ROAD',NEI$fips),sum)
+names(motor) <-c('year','type','fips','Emissions')
+motorem.city<-motor[motor$type==TRUE & 
+                     (motor$fips=='24510'|motor$fips=='06037'),]
+motorem.city$city <-ifelse(motorem.city$fips=='24510','Baltimore City','LA County')
+
+
+#Create changes variable with the baseline being Emissions in 1999 for both cities
+
+baseline<-motorem.city[motorem.city$year==1999,]
+motorem.city$baseline<-ifelse(motorem.city$fips=='24510',baseline[baseline$fips=='24510',4],
+                         baseline[baseline$fips=='06037',4])
+motorem.city$changes<-motorem.city$Emissions/motorem.city$baseline
+
+#Plot
+library(ggplot2)
+qplot(year,changes,data=motorem.city, geom=c('line','point'), 
+      main='Changes in Emission from Motor-Related Sources 1999-2008 
+      Baltimore City vs LA County',
+      color=city, ylab='Changes in Emissions (Emissions in 1999 =1)')
+```
+
+
+
